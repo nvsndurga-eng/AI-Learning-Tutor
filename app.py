@@ -9,18 +9,51 @@ ROOT = Path(__file__).parent
 load_dotenv(ROOT / ".env")
 st.set_page_config(page_title="LearnMate AI", page_icon="📚", layout="wide")
 
+
 def ai_call(prompt, image_bytes=None, mime_type=None):
     key = os.getenv("GEMINI_API_KEY", "").strip()
+
+    if not key:
+        try:
+            key = str(st.secrets.get("GEMINI_API_KEY", "")).strip()
+        except Exception:
+            key = ""
+
     if not key or key == "PASTE_YOUR_API_KEY_HERE":
-        return None, "Gemini API key missing. Add it to .env beside app.py, save, and restart."
-    model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip()
+        return None, (
+            "Gemini API key missing. Add it to your local .env file "
+            "or configure GEMINI_API_KEY in Streamlit Cloud Secrets."
+        )
+
+    model = os.getenv("GEMINI_MODEL", "").strip()
+
+    if not model:
+        try:
+            model = str(
+                st.secrets.get("GEMINI_MODEL", "gemini-3.8-flash")
+            ).strip()
+        except Exception:
+            model = "gemini-3.8-flash"
+
     try:
         client = genai.Client(api_key=key)
         content = [prompt]
+
         if image_bytes:
-            content.append(types.Part.from_bytes(data=image_bytes, mime_type=mime_type or "image/jpeg"))
-        response = client.models.generate_content(model=model, contents=content)
+            content.append(
+                types.Part.from_bytes(
+                    data=image_bytes,
+                    mime_type=mime_type or "image/jpeg"
+                )
+            )
+
+        response = client.models.generate_content(
+            model=model,
+            contents=content
+        )
+
         return response.text or "The AI returned an empty response.", None
+
     except Exception as exc:
         return None, f"Gemini request failed: {exc}"
 
